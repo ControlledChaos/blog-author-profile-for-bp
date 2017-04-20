@@ -26,8 +26,7 @@
 class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 
 	public function __construct() {
-
-		parent::WP_Widget( false, $name = __( 'BP Author Profile for Blogs', 'bpdev' ) );
+		parent::__construct( false, $name = __( 'BP Author Profile for Blogs', 'blog-author-profile-for-bp' ) );
 	}
 
 	public function widget( $args, $instance ) {
@@ -38,20 +37,19 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 
 		extract( $args );
 
-		echo $before_widget;
-		echo $before_title
+		echo $args['before_widget'];
+		echo $args['before_title']
 		     . $instance['title']
-		     . $after_title;
+		     . $args['after_title'];
 
 		self::bpdev_show_blog_profile( $instance );
 		/*** show the profile fields**/
 
 
-		echo $after_widget;
+		echo $args['after_widget'];
 	}
 
-	function update( $new_instance, $old_instance ) {
-
+	public function update( $new_instance, $old_instance ) {
 		$instance = $old_instance;
 
 		foreach ( $new_instance as $key => $val ) {
@@ -62,12 +60,13 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 	}
 
 
-	function form( $instance ) {
-		$instance = wp_parse_args(
+	public function form( $instance ) {
+
+	    $instance = wp_parse_args(
 			(array) $instance,
 			array(
 				'title'       => __( 'Author Profile', 'blog-author-profile-bp' ),
-				'show_avatar' => 'yes'
+				'show_avatar' => 'yes',
 			)
 		);
 
@@ -81,28 +80,25 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
             <label for="bpdev-widget-title"><?php _e( 'Title:', 'blog-author-profile-bp' ); ?>
                 <input class="widefat" id="<?php echo $this->get_field_id( 'title' ); ?>"
                        name="<?php echo $this->get_field_name( 'title' ); ?>" type="text"
-                       value="<?php echo esc_attr( stripslashes( $title ) ); ?>"/>
+                       value="<?php echo esc_attr(  $title ); ?>"/>
             </label>
         </p>
         <p>
-            <label for="bpdev-widget-show-avatar"><?php _e( 'Show Avatar', 'blog-author-profile-bp' ); ?>
+            <label for="bpdev-widget-show-avatar"><?php _e( 'Show Avatar', 'blog-author-profile-for-bp' ); ?>
                 <input type="radio" id="<?php echo $this->get_field_id( 'show_avatar' ); ?>"
                        name="<?php echo $this->get_field_name( 'show_avatar' ); ?>"
-                       value="yes" <?php if ( $show_avatar == "yes" ) {
-					echo "checked='checked'";
-				} ?> >Yes
+                       value="yes" <?php checked( $instance['show_avatar'], 'yes' ) ; ?> > <?php _e( 'Yes', 'blog-author-profile-for-bp' );?>
+
                 <input type="radio" id="<?php echo $this->get_field_id( 'show_avatar' ); ?>"
                        name="<?php echo $this->get_field_name( 'show_avatar' ); ?>"
-                       value="no" <?php if ( esc_attr( $show_avatar ) != "yes" ) {
-					echo "checked='checked'";
-				} ?>>No
+                       value="no" <?php checked( $instance['show_avatar'] , "no" ); ?>> <?php _e( 'No', 'blog-author-profile-for-bp' );?>
             </label>
         </p>
 		<?php
 		//get all xprofile fields and ask user whether to show them or not
 
 		?>
-        <h3><?php _e( "Profile Fields Visibility", "bpdev" ); ?></h3>
+        <h3><?php _e( 'Profile Fields Visibility', 'blog-author-profile-for-bp' ); ?></h3>
         <table>
 
 			<?php if ( function_exists( 'bp_has_profile' ) ) :
@@ -111,7 +107,7 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 					<?php while ( bp_profile_fields() ) : bp_the_profile_field(); ?>
 
 						<?php $fld_name = bp_get_the_profile_field_input_name();
-						$fld_val        = ${$fld_name};
+						$fld_val        = isset( $instance[$fld_name] ) ? $instance[$fld_name]  : 'yes';//yes by default
 						?>
 
                         <tr>
@@ -151,7 +147,6 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 	 * @desc Get the admin users of current blog
 	 */
 	function get_admin_users_for_current_blog() {
-		global $wpdb, $current_blog;
 		$users = get_users(
 			array(
 				'role'    => 'administrator',
@@ -164,7 +159,7 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 	}
 
 
-	function bpdev_show_blog_profile( $instance ) {
+	private static function bpdev_show_blog_profile( $instance ) {
 
 		$show_avatar = $instance['show_avatar'];//we need to preserve for multi admin
 
@@ -186,6 +181,10 @@ class BPDEV_BPAuthorProfile_Widget extends WP_Widget {
 
 			$op .= '<td>' . bp_core_fetch_avatar( array( 'item_id' => $user_id, 'type' => 'thumb' ) ) . '</td></tr>';
 		}
+
+		if ( is_user_logged_in() && $user_id != get_current_user_id() ) {
+			$op .= '<tr class="user-message"><td colspan="2"><a href="' . wp_nonce_url( bp_loggedin_user_domain() . bp_get_messages_slug() . '/compose/?r=' . bp_core_get_username( $user_id ) ) . '">'. __('Message', 'blog-author-profile-for-bp') . '</a></td></tr>';
+        }
 //bad approach, because buddypress does not allow to fetch the field name from field key
 
 		if ( function_exists( 'bp_has_profile' ) ) :
@@ -229,7 +228,7 @@ function bpdev_get_blog_author_id() {
 	$author_id = null;
 	if ( in_the_loop() ) {
 		//inside post loop
-		$author_id = get_the_author_ID();
+		$author_id = get_the_author_meta('ID');
 	} elseif ( is_singular() && ! is_buddypress() ) {
 		global $wp_the_query;
 		$author_id = $wp_the_query->posts[0]->post_author;
